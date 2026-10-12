@@ -1,24 +1,34 @@
-from typing import TypeVar, Generic
+"""统一响应格式：全站接口返回 {code, msg, data} 结构。
+
+使用方式一（直接返回字典）：
+    from src.my_model.core.response import ok, fail
+    return ok(data={"id": 1})            # {"code":0,"msg":"success","data":{...}}
+    return fail(msg="用户名已存在", code=40901)
+
+使用方式二（作为 response_model，配合泛型）：
+    from src.my_model.core.response import ResponseModel
+    @app.get("/user", response_model=ResponseModel[UserOut])
+    ...
+"""
+from typing import Generic, Optional, TypeVar
+
 from pydantic import BaseModel
 
-# 1. 定义泛型类型变量，代表业务数据的具体类型
 T = TypeVar("T")
 
-# 2. 定义基础响应模型，继承 Generic[T]
-class ApiResponse(BaseModel, Generic[T]):
-    code: int = 200
+
+class ResponseModel(BaseModel, Generic[T]):
+    """通用响应体模型（用于 OpenAPI 文档 / response_model）"""
+    code: int = 0
     msg: str = "success"
-    data: T = None
+    data: Optional[T] = None
 
-# 3. 实际业务中使用
-class UserOut(BaseModel):
-    id: int
-    name: str
 
-# 此时 UserResponse 的 data 字段会被精准推断为 UserOut 类型
-UserResponse = ApiResponse[UserOut]
+def ok(data=None, msg: str = "success", code: int = 0) -> dict:
+    """成功响应"""
+    return {"code": code, "msg": msg, "data": data}
 
-# 测试
-# valid_data = {"code": 200, "msg": "ok", "data": {"id": 1, "name": "test"}}
-# resp = UserResponse(**valid_data)
-# 如果 data 里面缺了 name，Pydantic 会直接报 ValidationError
+
+def fail(msg: str = "error", code: int = 1, data=None) -> dict:
+    """失败响应（HTTP 状态由异常处理器或调用方决定，这里只负责结构）"""
+    return {"code": code, "msg": msg, "data": data}
